@@ -38,9 +38,9 @@ extension GoogleDrive {
         .eraseToAnyPublisher()
     }
     
-    public func uploadPublisher(data: Data, name: String, mimeType: MimeType) -> AnyPublisher<Bool, Error> {
+    public func uploadPublisher(folderID: String? = nil, data: Data, name: String, mimeType: MimeType) -> AnyPublisher<Bool, Error> {
         Future { [weak self] promise in
-            self?.upload(data: data, name: name, mimeType: mimeType) { result, error in
+            self?.upload(folderID: folderID, data: data, name: name, mimeType: mimeType) { result, error in
                 guard let error = error else {
                     return promise(.success(result))
                 }

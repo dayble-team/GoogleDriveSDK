@@ -13,23 +13,47 @@ import GoogleSignIn
 public final class GoogleAuth {
     public static let shared = GoogleAuth()
     
-    public var isSinged: Bool {
-        return false
+    public var isSignedIn: Bool {
+        GIDSignIn.sharedInstance.hasPreviousSignIn()
     }
     
-    var user: GIDGoogleUser? {
+    var configuration: GIDConfiguration?
+    
+    public var user: GIDGoogleUser? {
         didSet {
             GoogleDrive.shared.configuration(with: user)
         }
     }
     
-    public func signIn(clientID: String, with scopes: [Scope], presenting: UIViewController, callback: ((_ success: Bool, Error?) -> Void)?) {
-        guard isSinged == false else {
-            callback?(true, nil)
+    public func configure(in bundle: Bundle = .main, for resource: String) {
+        guard let path = bundle.path(forResource: resource, ofType: "plist"),
+              let dictionary = NSDictionary(contentsOfFile: path),
+              let clientID = dictionary.value(forKey: "CLIENT_ID") as? String else {
             return
         }
-        let configuration = GIDConfiguration(clientID: clientID)
+        configuration = GIDConfiguration(clientID: clientID)
+    }
+    
+    public func signIn(with scopes: [Scope], callback: ((_ success: Bool, Error?) -> Void)?) {
+        guard let clientID = configuration?.clientID,
+              let viewController = UIApplication.topViewController() else {
+            return
+        }
         
+        signIn(clientID: clientID, with: scopes, presenting: viewController, callback: callback)
+    }
+    
+    public func signIn(clientID: String, with scopes: [Scope], callback: ((_ success: Bool, Error?) -> Void)?) {
+        guard let viewController = UIApplication.topViewController() else {
+            return
+        }
+        signIn(clientID: clientID, with: scopes, presenting: viewController, callback: callback)
+    }
+    
+    public func signIn(clientID: String, with scopes: [Scope], presenting: UIViewController, callback: ((_ success: Bool, Error?) -> Void)?) {
+        
+        let configuration = GIDConfiguration(clientID: clientID)
+
         GIDSignIn
             .sharedInstance
             .signIn(with: configuration, presenting: presenting) { [weak self] user, error in
@@ -49,16 +73,16 @@ public final class GoogleAuth {
         GIDSignIn.sharedInstance.signOut()
     }
     
-    public func restorePreviousSignIn() {
+    public func restorePreviousSignIn(callback: ((_ success: Bool, Error?) -> Void)?) {
         GIDSignIn
             .sharedInstance
             .restorePreviousSignIn { [weak self] user, error in
-                self?.user = user
-                if error != nil || user == nil {
-                    // Show the app's signed-out state.
-                } else {
-                    // Show the app's signed-in state.
+                guard let error = error else {
+                    self?.user = user
+                    callback?(true, nil)
+                    return
                 }
+                callback?(false, error)
             }
     }
     
@@ -99,6 +123,38 @@ extension GoogleAuth.Scope {
     public static let documents = GoogleAuth.Scope(rawValue: "https://www.googleapis.com/auth/documents")
     public static let documentsReadonly = GoogleAuth.Scope(rawValue: "https://www.googleapis.com/auth/documents.readonly")
     public static let drive = GoogleAuth.Scope(rawValue: "https://www.googleapis.com/auth/drive")
+    public static let driveAppData = GoogleAuth.Scope(rawValue: "https://www.googleapis.com/auth/drive.appdata")
     public static let driveFile  = GoogleAuth.Scope(rawValue: "https://www.googleapis.com/auth/drive.file")
     public static let driveReadonly  = GoogleAuth.Scope(rawValue: "https://www.googleapis.com/auth/drive.readonly")
+}
+
+
+import Combine
+
+extension GoogleAuth {
+    
+}
+
+
+
+
+import UIKit
+
+extension UIApplication {
+    static func topViewController(controller: UIViewController? = nil) -> UIViewController? {
+        let controller = controller ?? UIApplication.shared.windows.first { $0.isKeyWindow }?.rootViewController
+        
+        if let navigationController = controller as? UINavigationController {
+            return topViewController(controller: navigationController.visibleViewController)
+        }
+        if let tabController = controller as? UITabBarController {
+            if let selected = tabController.selectedViewController {
+                return topViewController(controller: selected)
+            }
+        }
+        if let presented = controller?.presentedViewController {
+            return topViewController(controller: presented)
+        }
+        return controller
+    }
 }

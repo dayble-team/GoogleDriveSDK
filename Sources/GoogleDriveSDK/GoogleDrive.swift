@@ -28,9 +28,20 @@ public final class GoogleDrive {
         execute(query: query, completion: completion)
     }
     
-    public func upload(data: Data, name: String, mimeType: MimeType, completion: ((Bool, Error?) -> Void)?) {
+    
+    /// 파일 업로드
+    /// - Parameters:
+    ///   - folderID: null 이면 root drive, appDataFolder 또는 folderID 사용
+    ///   - data: 업로드할 데이터
+    ///   - name: 업로드할 파일명
+    ///   - mimeType: mineType
+    ///   - completion: 성공 응답
+    public func upload(folderID: String? = "appDataFolder", data: Data, name: String, mimeType: MimeType, completion: ((Bool, Error?) -> Void)?) {
         let file = GTLRDrive_File()
         file.name = name
+        if let folderID = folderID {
+            file.parents = [folderID]
+        }
         let params = GTLRUploadParameters(data: data, mimeType: mimeType.rawValue)
         params.shouldUploadWithSingleRequest = true
         
@@ -44,6 +55,34 @@ public final class GoogleDrive {
             }
             completion?(false, error)
         })
+    }
+    
+    public func createFolder(spaces: DriveSpaceOptions? = nil,
+                             name: String,
+                             completion: ((String?, Error?) -> Void)?) {
+        fetchFile(spaces: spaces, by: name) { [weak self] file, error in
+            if let file = file {
+                completion?(file.identifier, nil)
+                return
+            }
+            
+            let folder = GTLRDrive_File()
+            folder.mimeType = MimeType.googleDriveFolder.rawValue
+            folder.name = name
+            
+            if let spaces = spaces {
+                folder.parents = spaces.parents
+            }
+            let query = GTLRDriveQuery_FilesCreate
+                .query(withObject: folder, uploadParameters: nil)
+            self?.execute(query: query) { (file: GTLRDrive_File?, error: Error?) in
+                guard let error = error else {
+                    completion?(file?.identifier, nil)
+                    return
+                }
+                completion?(nil, error)
+            }
+        }
     }
     
     /// 파일 상세정보
@@ -108,23 +147,43 @@ extension GoogleDrive {
 
 
 extension GoogleDrive {
-    public func fetchFileList(by mimeType: MimeType, completion: ((APIDriveFileList?, Error?) -> Void)?) {
+    public func fetchFileList(spaces: DriveSpaceOptions? = nil,
+                              by mimeType: MimeType,
+                              completion: ((APIDriveFileList?, Error?) -> Void)?) {
         let query = GTLRDriveQuery_FilesList.query()
         query.pageSize = 100
+        query.spaces = spaces?.querySpaces
         query.q = "mimeType = '\(mimeType.rawValue)'"
         execute(query: query, completion: completion)
     }
     
-    public func fetchFileList(by name: String, completion: ((APIDriveFileList?, Error?) -> Void)?) {
+    public func fetchFileList(spaces: DriveSpaceOptions? = nil,
+                              by name: String,
+                              completion: ((APIDriveFileList?, Error?) -> Void)?) {
         let query = GTLRDriveQuery_FilesList.query()
         query.pageSize = 100
+        query.spaces = spaces?.querySpaces
         query.q = "name contains '\(name)'"
         execute(query: query, completion: completion)
     }
     
-    public func fetchFileList(completion: ((APIDriveFileList?, Error?) -> Void)?) {
+    public func fetchFileList(spaces: DriveSpaceOptions? = nil,
+                              completion: ((APIDriveFileList?, Error?) -> Void)?) {
         let query = GTLRDriveQuery_FilesList.query()
-        query.fields = "kind,nextPageToken,files(mimeType,id,kind,name,webViewLink,thumbnailLink,trashed)"
+        query.spaces = spaces?.querySpaces
+        query.fields = "nextPageToken, files(id, name)"//kind,nextPageToken,files(mimeType,id,kind,name,webViewLink,thumbnailLink,trashed)"
         execute(query: query, completion: completion)
+    }
+    
+    
+    public func fetchFile(spaces: DriveSpaceOptions? = nil,
+                              by name: String,
+                              completion: ((APIDriveFile?, Error?) -> Void)?) {
+        let query = GTLRDriveQuery_FilesList.query()
+        query.spaces = spaces?.querySpaces
+        query.q = "name contains '\(name)'"
+        execute(query: query) { (list: APIDriveFileList?, error: Error?) in
+            completion?(list?.files?.first, error)
+        }
     }
 }
