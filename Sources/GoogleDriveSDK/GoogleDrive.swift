@@ -12,8 +12,11 @@ public final class GoogleDrive {
     var service = GTLRDriveService()
     
     func configuration(with user: GIDGoogleUser?) {
+        let dispatchQueue = DispatchQueue.global(qos: .background)
         service.shouldFetchNextPages = true
         service.isRetryEnabled = true
+        service.parseQueue = dispatchQueue
+        service.callbackQueue = dispatchQueue
         service.authorizer = user?.authentication.fetcherAuthorizer()
     }
     
@@ -24,7 +27,8 @@ public final class GoogleDrive {
     }
 
     public func download(fileID: String, completion: ((APIDataObject?, Error?) -> Void)?) {
-        let query = GTLRDriveQuery_FilesGet.query(withFileId: fileID)
+        let query = GTLRDriveQuery_FilesGet.queryForMedia(withFileId: fileID)
+        //GTLRDriveQuery_FilesGet.query(withFileId: fileID)
         execute(query: query, completion: completion)
     }
     
@@ -42,6 +46,7 @@ public final class GoogleDrive {
         if let folderID = folderID {
             file.parents = [folderID]
         }
+        
         let params = GTLRUploadParameters(data: data, mimeType: mimeType.rawValue)
         params.shouldUploadWithSingleRequest = true
         
@@ -60,7 +65,8 @@ public final class GoogleDrive {
     public func createFolder(spaces: DriveSpaceOptions? = nil,
                              name: String,
                              completion: ((String?, Error?) -> Void)?) {
-        fetchFile(spaces: spaces, by: name) { [weak self] file, error in
+        fetchFolder(spaces: spaces, by: name) { [weak self] file, error in
+            // 종중복으로 못하도록?
             if let file = file {
                 completion?(file.identifier, nil)
                 return
@@ -177,11 +183,33 @@ extension GoogleDrive {
     
     
     public func fetchFile(spaces: DriveSpaceOptions? = nil,
-                              by name: String,
-                              completion: ((APIDriveFile?, Error?) -> Void)?) {
+                          parent: String? = nil,
+                          by name: String,
+                          mimeType: MimeType,
+                          completion: ((APIDriveFile?, Error?) -> Void)?) {
         let query = GTLRDriveQuery_FilesList.query()
         query.spaces = spaces?.querySpaces
-        query.q = "name contains '\(name)'"
+        var querys: [String] = []
+        querys.append("name = '\(name)'")
+        querys.append("mimeType = '\(mimeType.rawValue)'")
+        if let parent = parent {
+            querys.append("'\(parent)' in parents")
+        }
+        query.q = querys.joined(separator: " and ")
+        
+        execute(query: query) { (list: APIDriveFileList?, error: Error?) in
+            completion?(list?.files?.first, error)
+        }
+    }
+    
+    public func fetchFolder(spaces: DriveSpaceOptions? = nil,
+                            by name: String,
+                            completion: ((APIDriveFile?, Error?) -> Void)?) {
+        let query = GTLRDriveQuery_FilesList.query()
+        query.fields = "*"
+        query.spaces = spaces?.querySpaces
+        
+        query.q = "name = '\(name)' and mimeType = '\(MimeType.googleDriveFolder.rawValue)'"
         execute(query: query) { (list: APIDriveFileList?, error: Error?) in
             completion?(list?.files?.first, error)
         }

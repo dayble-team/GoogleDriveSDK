@@ -62,9 +62,10 @@ public final class GoogleAuth {
                     callback?(user != nil, error)
                     return
                 }
-                self?.addScopes(scopes, presenting: presenting) { user, error in
-                    self?.user = user
-                    callback?(user != nil, error)
+                self?.addScopes(scopes, presenting: nil) { _, error in
+                    self?.restorePreviousSignIn { success, error in
+                        callback?(success, error)
+                    }
                 }
             }
     }
@@ -92,11 +93,16 @@ public final class GoogleAuth {
     }
     
     
-    func addScopes(_ scopes: [Scope], presenting: UIViewController, callback: ((GIDGoogleUser?, Error?) -> Void)?) {
-        let scopesPaths = scopes.map { $0.rawValue}
+    func addScopes(_ scopes: [Scope], presenting: UIViewController?, callback: ((GIDGoogleUser?, Error?) -> Void)?) {
+        guard let viewControllear = presenting ?? UIApplication.topViewController() else {
+            callback?(nil, nil)
+            return
+        }
+        let scopesPaths = scopes.map { $0.rawValue }
+        
         GIDSignIn
             .sharedInstance
-            .addScopes(scopesPaths,  presenting: presenting) { user, error in
+            .addScopes(scopesPaths, presenting: viewControllear) { user, error in
                 callback?(user, error)
             }
     }

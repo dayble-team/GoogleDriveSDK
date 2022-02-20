@@ -30,7 +30,7 @@ extension GoogleDrive {
         Future { [weak self] promise in
             self?.download(fileID: fileID) { result, error in
                 guard let result = result else {
-                    return promise(.failure(error!))
+                    return promise(.failure(error ?? GoogleDriveError.unknown))
                 }
                 promise(.success(result))
             }
@@ -50,6 +50,18 @@ extension GoogleDrive {
         .eraseToAnyPublisher()
     }
     
+    public func fetchFilePublisher(spaces: DriveSpaceOptions? = nil, parent: String? = nil, name: String, mimeType: MimeType) -> AnyPublisher<APIDriveFile, Error> {
+        Future { [weak self] promise in
+            self?.fetchFile(spaces: spaces, parent: parent, by: name, mimeType: mimeType) { result, error  in
+                guard let result = result else {
+                    return promise(.failure(error ?? GoogleDriveError.unknown))
+                }
+                promise(.success(result))
+            }
+        }
+        .eraseToAnyPublisher()
+    }
+    
     public func deletePublisher(fileID: String) -> AnyPublisher<Bool, Error> {
         Future { [weak self] promise in
             self?.deleteFile(fileID: fileID) { result, error in
@@ -62,4 +74,8 @@ extension GoogleDrive {
         .eraseToAnyPublisher()
     }
     
+}
+
+enum GoogleDriveError: Error {
+    case unknown
 }

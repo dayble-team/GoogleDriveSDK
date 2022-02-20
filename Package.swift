@@ -34,7 +34,7 @@ let package = Package(
             name: "GoogleDriveSDK",
             dependencies: [
                 "GoogleSignIn",
-//                .product(name: "GoogleAPIClientForRESTCore", package: "GoogleAPIClientForREST"),
+                .product(name: "GoogleAPIClientForRESTCore", package: "GoogleAPIClientForREST"),
                 .product(name: "GoogleAPIClientForREST_Drive", package: "GoogleAPIClientForREST")
             ]),
 //            cSettings: [
