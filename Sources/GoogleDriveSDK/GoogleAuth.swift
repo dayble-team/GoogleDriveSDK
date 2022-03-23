@@ -10,18 +10,21 @@ import Foundation
 import GoogleSignIn
 
 
-public final class GoogleAuth {
+public final class GoogleAuth: NSObject {
     public static let shared = GoogleAuth()
     
     public var isSignedIn: Bool {
         GIDSignIn.sharedInstance.hasPreviousSignIn()
     }
     
+    @objc dynamic public var isReady: Bool = false
+    
     var configuration: GIDConfiguration?
     
     public var user: GIDGoogleUser? {
         didSet {
             GoogleDrive.shared.configuration(with: user)
+            isReady = user != nil
         }
     }
     

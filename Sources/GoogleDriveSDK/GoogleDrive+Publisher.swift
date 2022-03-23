@@ -11,7 +11,6 @@ import Combine
 import GoogleAPIClientForREST_Drive
 
 
-
 extension GoogleDrive {
     
     public func fetchQueryPublisher<Result: APIObject>(query: APIQueryProtocol) -> AnyPublisher<Result, Error> {
